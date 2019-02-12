@@ -1,0 +1,13 @@
+default: &default
+  adapter: postgresql
+  encoding: utf-8
+  pool: 5
+  host: localhost
+  port: 5432
+  username: paulo
+  password: "123"
+  schema_search_path: 'udemy'
+
+development:
+  <<: *default
+  database: "msginova_development"
