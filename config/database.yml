@@ -6,8 +6,7 @@ default: &default
   port: 5432
   username: paulo
   password: "123"
-  schema_search_path: 'udemy'
 
 development:
   <<: *default
-  database: "msginova_development"
+  database: "udemy_estudos"
