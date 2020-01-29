@@ -213,15 +213,24 @@ has_many :phones
 ==================================
 
 
-O model telefone não foi criado usando scaffold, ou seja, o telefone precisara ser criado no momento em for criado um contato
-ou atualizando um contato.
+O model telefone não foi criado usando scaffold, ou seja, o telefone precisara ser criado no momento em for criado um contato ou atualizando um contato.
 
 
 Isso so é possivel por conta "accepts_nested_attributes_for"
 
 https://api.rubyonrails.org/classes/ActiveRecord/NestedAttributes/ClassMethods.html
 
-one-to-many
+
+# one-to-many
+
+No model contact vou permitir que os atributos de telefone sejam passados e criado no momento em que estiver criando
+um contato
+
+class Contact < ApplicationRecord
+    belongs_to :kind
+    has_many :phones
+    accepts_nested_attributes_for :phones
+end
 
 
 Criar um contato na mao (console)
@@ -229,4 +238,94 @@ Criar um contato na mao (console)
 Contact.create(name: "paulo", email: "paulo@paulo", birthdate: "10/10/20", kind_id: 3)
 
 
-Aula 21
+Pegar os dados colocar dentro de uma variavel que sera passado como parametro.
+
+Ex:
+
+# bundle exec rails c
+
+[1] pry(main)> params = { contact: { name: "paulo", email: "paulo@paulo", birthdate: "10/10/20", kind_id: 3 }}
+=> {:contact=>{:name=>"paulo", :email=>"paulo@paulo", :birthdate=>"10/10/20", :kind_id=>3}}
+
+[1] pry(main)> params[:contact][:name]
+
+Criar um contato a partir dos parametros passado, a partir da chave contact
+
+[1] pry(main)> Contact.create(params[:contact])
+
+
+[1] pry(main)> params = { contact: { 
+                  name: "paulo", 
+                  email: "paulo@paulo", 
+                  birthdate: "10/10/20", 
+                  kind_id: 3,
+                  phones_attributes: [
+                    { number: '1234'},
+                    { number: '5678'},
+                    { number: '9101'}
+                  ]
+                }}
+
+
+[1] pry(main)> Contact.create(params[:contact])
+
+
+Como fiz esse exemplo direto no console nãp precisei liberar na controller os parametros permitidos na controler dos contatos.
+
+========================================
+
+AJUSTANDO A CONTROLLER
+
+Ao criar um novo contato, é chamado a rota "/contact" pelo verbo POST
+Ele chama a method create que por sua vez invoca o method privado "contact_params"
+
+def contact_params
+  params.require(:contact).permit(:name, :email, :birthdate, :kind_id)
+end
+
+Esse method por sua vez, espera que vc tenha um json que tenha uma chave comecando com contact. Geralmente nas requisiçoes POST passamos isso aqui para popular os dados. 
+
+
+
+Se fizermos um POST para criar um novo contact, como no exemplo abaixo, não dará erro na tela , pois esse novo parametro
+ainda não existe na controller , ou seja , sera criado um novo contato sem telefone.
+
+
+Devo librar a chave "phones_attribuites" dentro do method contact_params
+
+def contact_params
+    params.require(:contact).permit(:name, :email, :birthdate, :kind_id, 
+                                    :phones_attributes [:number])
+end
+
+
+
+{
+    "name": "Paulao da Regulagem",
+    "email": "paulo@paulao.io",
+    "birthdate": "1983-09-17",
+    "kind_id": 2,
+    "phones_attributes": [
+      { "number": "5555" },
+      { "number": "7777" }
+    ]
+}
+
+Mesmo assim ainda não cadastrou o telefone, isso porque ele espera que o elemento contatc seja declarado na raiz do json.
+
+----------------------
+
+
+
+{ "contact":
+    {
+      "name": "Paulao da Regulagem",
+      "email": "paulo@paulao.io",
+      "birthdate": "1983-09-17",
+      "kind_id": 2,
+      "phones_attributes": [
+        { "number": "5555" },
+        { "number": "7777" }
+      ]
+    }
+}
