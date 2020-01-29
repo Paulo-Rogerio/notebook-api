@@ -1,0 +1,232 @@
+- Udemy
+
+- Verbos HTTP (POST)
+curl http://localhost:3000/contacts -i -v -X POST -H "Content-Type: application/json" -d '{"name": "Paulo", "email": "paulo@paulo.com"}'
+
+- GET
+curl http://localhost:3000/contacts/101 -i -v 
+
+- PUT ( atualiza todos os itens do recurso , todos os campos )
+- PATCH ( atualiza um campo )
+
+curl http://localhost:3000/contacts/101 -i -v -X PATCH -H "Content-Type: application/json" -d '{"name": "Paulo Rogerio", "email": "paulo@paulorogerio.com"}'
+
+- DELETE
+
+curl http://localhost:3000/contacts/101 -i -v -X DELETE
+
+====================================
+
+- Status Code Ruby (https://httpstatuses.com/)
+
+- Map / Collect ( Cria um novo array a partir de um array ja existente )
+
+x = [1,2,3,4,5]
+x.class
+x.map { |i| i*3 }
+
+- Assim eu forco o x a receber os novos elementos apos o calculo.
+x.collect! {|i| i*3}
+
+=========================================
+
+- Active Support JSON 
+
+Tem dois elementos ( encode e decode )
+
+https://edgeapi.rubyonrails.org/classes/ActiveSupport/JSON.html
+
+Encode => Pega um hash e codifica para JSON
+
+Decode => Pega um string (json) e codifica para HASH
+
+x = {nome: "paulo"}
+x.class
+=> Hash
+y = x.to_json
+=> "{\"nome\":\"paulo\"}"
+
+# Faz  a mesma coisa
+y = ActiveSupport::JSON.encode(x)
+=> "{\"nome\":\"paulo\"}"
+y.class
+=> String
+
+=======================================
+
+- Active Model Serializer JSON
+
+https://edgeapi.rubyonrails.org/classes/ActiveModel/Serializers/JSON.html
+
+Tem dois elementos ( as_json e from_json )
+
+
+as_json   => Pega um elemento do Model e represnta-lo como um hash
+
+Ex:
+
+c = Contact.first
+c.class 
+# É do tipo contato
+=> Contact(id: integer, name: string, email: string, birthdate: date, created_at: datetime, updated_at: datetime)
+
+# Vai transformar meu objeto contato em um objeto do tipo hash
+c.as_json
+c.as_json.class
+
+# Como ele agora é um hash , posso aplicar um to_json para transforma-lo em uma string.
+c.as_json.to_json
+=> String
+
+========================================
+
+Render JSON
+
+
+O que esse cara faz?
+
+Ex:
+
+def index
+  @contact = Contact.all
+  render json: @contacts
+end
+
+Por debaixo dos panos ele faz a magica acontecer... Transforma um objeto do tipo contato em texto plano (string).
+
+def index
+  @contact = Contact.all
+  render json: @contacts.as_json.to_json
+end
+
+
+========================================
+
+Ativar a raiz na sua resposta ( root: true ) Na controller
+
+=======================================
+
+Quais dados que quero que apareca ( Ex: apenas nome e email )
+
+render json: @contacts, status: :ok, only: [:name, :email]
+
+Assim preciso personalizar para cada method, uma maneira simples de resolver isso é reescrever o as_json
+assim ele se aplicará em todos os methods. O super invoca o as_json original
+
+===========================
+
+Aula 16
+
+bundle exec rails g migration add_kind_to_contact kind:references
+bundle exec rails g scaffold kind description:string
+
+bundle exec rails db:drop db:create db:migrate dev:setup
+
+Fazer assossiacao ( Dentro do model contact )
+
+belongs_to :kind
+
+
+======================================
+
+So que ele envia o ID , vamos aprender como enviar o nome.
+Aleterar o model contact o method "as_json"
+
+Com o include ele faz alinhada ( um dentro do outro )
+
+    def as_json(otions={})
+        super(
+            root: true,
+            methods: :autor, 
+            include: { kind: { only: :description }}  
+        )
+    end
+
+======================================
+
+Se eu quiser trazer outro atributo chamado "kind_description" , neste caso ele não sera nexted (alinhado)
+
+    def kind_description
+       self.kind.description
+    end
+
+    def as_json(otions={})
+        super(
+            root: true,
+            methods: [:autor, :kind_description]  
+        )
+    end
+
+==================================================
+
+Usando method POST com (belongs_to) Se nao informar o kind , propositalmente , ele irá resmungar e fazer rollback
+Como foi definido um belong_to no model, sou obrigado a informar isso na hora de fazer o post.
+
+Agora se eu definir no meu model que o belongs_to é opcional (belongs_to :contact, optional: true)
+Dessa forma consiguirei cadastrar sem informar o kink
+
+
+curl -X POST \
+  http://localhost:3000/contacts \
+  -H 'cache-control: no-cache' \
+  -H 'content-type: application/json' \
+  -d '{
+    "name": "Paulao da Regulagem",
+    "email": "paulo@paulao.io",
+    "birthdate": "1983-09-17"
+}'
+
+Saída do console ({"kind":["must exist"]})
+
+   (0.2ms)  BEGIN
+   (1.4ms)  ROLLBACK
+
+
+
+Mesmo depois de ter colocado a flag do option: true e caso eu envie meu POST novamente infomando o kind_id
+ainda assim receberei um erro informando que o parametro kind_id não foi permitido, ou seja, ele cadastra o 
+novo contact , mas a coluna kind_id ainda fica preenchida como null
+
+Unpermitted parameter: :kind_id
+
+
+Para resolver isso add na controller contact.rb
+
+def contact_params
+  params.require(:contact).permit(:name, :email, :birthdate, :kind_id)
+end
+
+====================================
+
+Criar uma associaçao (HAS_MANY)
+
+Sera craido apenas um model (telefone) não sera criado um scaffold.
+Permitir que 1 contato possa ter varios numeros de telefone. ( Contatos possui muitos telefones )
+
+
+bundle exec rails g model Phone number:string contact:references
+
+Model contact
+has_many :phones
+
+
+==================================
+
+
+O model telefone não foi criado usando scaffold, ou seja, o telefone precisara ser criado no momento em for criado um contato
+ou atualizando um contato.
+
+
+Isso so é possivel por conta "accepts_nested_attributes_for"
+
+https://api.rubyonrails.org/classes/ActiveRecord/NestedAttributes/ClassMethods.html
+
+one-to-many
+
+
+Criar um contato na mao (console)
+
+Contact.create(name: "paulo", email: "paulo@paulo", birthdate: "10/10/20", kind_id: 3)
+
+
+Aula 21
