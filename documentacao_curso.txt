@@ -298,7 +298,7 @@ def contact_params
                                     :phones_attributes [:number])
 end
 
-
+POST
 
 {
     "name": "Paulao da Regulagem",
@@ -315,7 +315,7 @@ Mesmo assim ainda não cadastrou o telefone, isso porque ele espera que o elemen
 
 ----------------------
 
-
+POST
 
 { "contact":
     {
@@ -329,3 +329,243 @@ Mesmo assim ainda não cadastrou o telefone, isso porque ele espera que o elemen
       ]
     }
 }
+
+
+
+==========================================
+
+Update
+
+Dentro da controller devo liberar o atributo "id" em phones_attributes
+
+def contact_params
+  params.require(:contact).permit(:name, :email, :birthdate, :kind_id, 
+                                  phones_attributes: [:id, :number]
+                                )
+end
+
+
+PATCH
+
+{ "contact":
+    {
+      "name": "Paulao da Regulagem",
+      "email": "paulo@paulorogerio.com.br",
+      "birthdate": "1983-09-17",
+      "kind_id": 2,
+      "phones_attributes": [
+        { 
+          "id": 1505,
+          "number": "9999" 
+        },
+        { 
+          "number": "1010101" 
+        }
+      ]
+    }
+}
+
+
+=============================================
+
+Delete
+
+def contact_params
+  params.require(:contact).permit(:name, :email, :birthdate, :kind_id, 
+                                  phones_attributes: [:id, :number, :_destroy]
+                                )
+end
+
+Neste exemplo , apos colocar o atributo "_destroy" dentro do parametros permitidos, vou usar o verbo PATCH
+para deletar telefones ( Tenho 3 telefones ), vou apagar 2.
+
+PATCH
+
+{ "contact":
+    {
+      "name": "Paulao da Regulagem",
+      "email": "paulo@paulorogerio.com.br",
+      "birthdate": "1983-09-17",
+      "kind_id": 2,
+      "phones_attributes": [
+        { 
+          "id": 1505,
+          "_destroy": 1 
+        },
+        { 
+          "id": 1504,
+          "_destroy": 1 
+        }
+      ]
+    }
+}
+
+
+==============================================
+
+Associacao HAS_ONE ( Aula 26 )
+
+
+Um contato tera apenas 1 endereco
+
+
+rails g model Address string city contact:references
+
+
+Observer que nested atributos esta no singular, pois é apenas um endereco.
+
+class Contact < ApplicationRecord
+    belongs_to :kind
+    has_many :phones
+    has_one :address
+    accepts_nested_attributes_for :phones, allow_destroy: true
+    accepts_nested_attributes_for :address
+end    
+
+
+No banco é permitido cadastrar multiplos enderecos (street), mas na aplicação ele sempre mostra o uktimo endereco cadastrado o mais recente.
+
+
+[1] pry(main)> contact = Contact.create!(
+                              name: Faker::Name.name,
+                              email: Faker::Internet.email,
+                              birthdate: Faker::Date.between(35.years.ago, 18.years.ago),
+                              kind: Kind.all.sample
+                            )
+
+Retorna nil , pois ainda não cadastramos o endereço.
+
+[2] pry(main)> contact.address
+  Address Load (0.6ms)  SELECT  "addresses".* FROM "addresses" WHERE "addresses"."contact_id" = $1 LIMIT $2  [["contact_id", 101], ["LIMIT", 1]]
+=> nil
+
+
+
+[3] pry(main)> Address.create!(street: Faker::Address.street_address,
+                      city: Faker::Address.city,
+                      contact: contact)
+
+=> #<Address:0x007f8b2cad8388
+ id: 101,
+ street: "65342 Ebony Islands",
+ city: "Charlieport",
+ contact_id: 101,
+ created_at: Wed, 29 Jan 2020 19:18:46 UTC +00:00,
+ updated_at: Wed, 29 Jan 2020 19:18:46 UTC +00:00>                      
+
+
+Se eu criar outro endereço para esse contato , é permitido, mas o rails sempre ira mostrar o mais atual.
+
+
+[4] pry(main)> Address.create!(street: Faker::Address.street_address,
+                      city: Faker::Address.city,
+                      contact: contact)
+
+=> #<Address:0x007f8b2c826c70
+ id: 102,
+ street: "2931 Howe Camp",
+ city: "Marksport",
+ contact_id: 101,
+ created_at: Wed, 29 Jan 2020 19:20:08 UTC +00:00,
+ updated_at: Wed, 29 Jan 2020 19:20:08 UTC +00:00>
+
+
+Sempre que pedi um endereco pro contato ele me mostrará o ultomo endereco, isso por conta do has_one.
+
+[6] pry(main)> contact.address
+=> #<Address:0x007f8b2c826c70
+ id: 102,
+ street: "2931 Howe Camp",
+ city: "Marksport",
+ contact_id: 101,
+ created_at: Wed, 29 Jan 2020 19:20:08 UTC +00:00,
+ updated_at: Wed, 29 Jan 2020 19:20:08 UTC +00:00>
+
+
+Fazendo um consulta para listar todos os enderecos.
+
+[13] pry(main)> Address.where(contact_id: 101)
+
+=> [#<Address:0x007f8b286374e0
+  id: 101,
+  street: "65342 Ebony Islands",
+  city: "Charlieport",
+  contact_id: 101,
+  created_at: Wed, 29 Jan 2020 19:18:46 UTC +00:00,
+  updated_at: Wed, 29 Jan 2020 19:18:46 UTC +00:00>,
+ #<Address:0x007f8b286371c0
+  id: 102,
+  street: "2931 Howe Camp",
+  city: "Marksport",
+  contact_id: 101,
+  created_at: Wed, 29 Jan 2020 19:20:08 UTC +00:00,
+  updated_at: Wed, 29 Jan 2020 19:20:08 UTC +00:00>]
+
+===========================
+
+
+Criar um novo contato juntamente com telefone e endereco
+
+
+No controller liberar os parametros permitidos. Lembrando que "address_attributes" deve esta no singular
+pois se trata de um relacionamento de um pra um ( has_one)
+
+
+def contact_params
+  params.require(:contact).permit(:name, :email, :birthdate, :kind_id, 
+                                  phones_attributes: [:id, :number, :_destroy],
+                                  address_attributes: [:id, :street, :city]
+                                )
+end
+
+No RAILS 5 , O RELACIONAMENTO HAS_ONE OBRIGA PRIMEIRO Cadastrar o endereco depois o contato.
+
+
+Definindo o optional true dentro do model Addreess, permitira Cadastrar um contato sem endereco
+pois o endereco e cadastrado logo na sequencia gracas o nexted_attribuits_for
+
+class Address < ApplicationRecord
+  belongs_to :contact, optional: true
+end
+
+
+No postman address_attributes não é um array pois é apenas um elemento.
+
+
+No Postman terá o seguinte conteudo. 
+
+{ "contact":
+  {
+    "name": "Paulao da Regulagem",
+    "email": "paulo@paulao.io",
+    "birthdate": "1982-05-18",
+    "kind_id": 1,
+    "phones_attributes": 
+    [
+      { 
+        "number": "5555" 
+      },
+      { 
+        "number": "7777" 
+        
+      }
+    ],
+    "address_attributes": {
+        "street": "Av. Manchester Ap. 408",
+        "city":   "Goiania" 
+    }
+  }
+}  
+
+
+=======================================
+
+
+Update
+
+PATCH
+
+Se eu não informar o id do endereco , ele criará u novo endereco
+
+
+Aula 27 7:xx

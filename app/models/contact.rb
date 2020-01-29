@@ -1,7 +1,9 @@
 class Contact < ApplicationRecord
     belongs_to :kind
     has_many :phones
-    accepts_nested_attributes_for :phones
+    has_one :address
+    accepts_nested_attributes_for :phones, allow_destroy: true
+    accepts_nested_attributes_for :address
 
     # Relacionamentos ( Contatos pertence a um tipo)
     # Faz com que a obrigatoriedade de se cadastrar um tipo 

@@ -2,6 +2,11 @@ namespace :dev do
   desc "Configurar ambiente de desenvolvimento"
   task setup: :environment do
 
+    # Executa no terminal os comandos que estao dentro do %x
+    puts "Zerando o Banco..."
+    %x(rails db:drop db:create db:migrate)
+    puts "Sucesso"
+
     #===== Criando Tipos (Aula 16) ======# 
     puts "Cadastrando kinds..."
     kinds = %w(Amigo Comercial Conhecido)
@@ -34,6 +39,15 @@ namespace :dev do
       end
     end
     puts "Sucesso!"
+
+    #===== Criando Telefones (Aula 24) =====# 
+    puts "Cadastrando os enderecos..."
+    Contact.all.each do |contact|
+      Address.create!(street: Faker::Address.street_address,
+                      city: Faker::Address.city,
+                      contact: contact)
+    end
+    puts "Sucesso!"    
 
   end
 end
